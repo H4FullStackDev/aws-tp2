@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: TP AWS Lambda - Code charge depuis src/main.py
+Description: TP AWS Lambda - Code chargé depuis src/main.py
 Parameters:
   Environment:
     Type: String
@@ -7,8 +7,7 @@ Parameters:
     Default: ehodia
   BucketName:
     Type: String
-    Description: S3 bucket name (e.g. votre identifiant sans le learnaws + 
-      -bucket pour différencier du bucket de votre voisin)
+    Description: S3 bucket name
     Default: s3-bucket-trigger-lambda
 Resources:
   LambdaExecutionRole:
@@ -53,7 +52,12 @@ Resources:
       Runtime: python3.12
       Code:
         S3Bucket: iabd-sourcecode-management-bucket
-        S3Key: 57fd43c78ecf07b2abccd4035e6354d3
+        S3Key: 64af58a26b8f92d6fe40b6f5cfa83fe8
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: s3-trigger-db
+          ENVIRONMENT:
+            Ref: Environment
   LambdaPermissionsForS3:
     Type: AWS::Lambda::Permission
     Properties:

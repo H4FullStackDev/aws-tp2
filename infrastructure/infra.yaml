@@ -1,5 +1,5 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'TP AWS Lambda - Code charge depuis src/main.py'
+Description: 'TP AWS Lambda - Code chargé depuis src/main.py'
 
 Parameters:
   Environment:
@@ -8,23 +8,23 @@ Parameters:
     Default: 'ehodia'
   BucketName:
     Type: String
-    Description: 'S3 bucket name (e.g. votre identifiant sans le learnaws + -bucket pour différencier du bucket de votre voisin)'
+    Description: 'S3 bucket name'
     Default: 's3-bucket-trigger-lambda'
 
 Resources:
-# Rôle IAM pour la fonction Lambda
+
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-        - Effect: Allow
-          Principal:
-            Service: [lambda.amazonaws.com]
-          Action: [sts:AssumeRole]
+          - Effect: Allow
+            Principal:
+              Service: [lambda.amazonaws.com]
+            Action: [sts:AssumeRole]
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
         - PolicyName: LambdaS3AccessPolicy
           PolicyDocument:
@@ -33,17 +33,12 @@ Resources:
               - Effect: Allow
                 Action: [s3:GetObject]
                 Resource: !Sub 'arn:aws:s3:::${Environment}-${BucketName}/*'
-                # Resource: !GetAtt S3Bucket.Arn
-
-                # Ecrire dand la base de données
               - Effect: Allow
-                Action: [
-                    dynamodb:PutItem,
-                    dynamodb:GetItem
-                ]
+                Action:
+                  - dynamodb:PutItem
+                  - dynamodb:GetItem
                 Resource: 'arn:aws:dynamodb:*:*:table/s3-trigger-db'
 
-  # Fonction Lambda
   LambdaTigger:
     Type: AWS::Lambda::Function
     Properties:
@@ -52,6 +47,11 @@ Resources:
       Role: !GetAtt LambdaExecutionRole.Arn
       Runtime: python3.12
       Code: ../src
+      # ✅ Variables d'environnement ajoutées
+      Environment:
+        Variables:
+          DYNAMODB_TABLE: 's3-trigger-db'
+          ENVIRONMENT: !Ref Environment
 
   LambdaPermissionsForS3:
     Type: AWS::Lambda::Permission
@@ -61,7 +61,6 @@ Resources:
       Principal: 's3.amazonaws.com'
       SourceArn: !Sub 'arn:aws:s3:::${Environment}-${BucketName}'
 
-  # S3 bucket pour stocker les fichier
   S3Bucket:
     Type: AWS::S3::Bucket
     Properties:
