@@ -1,64 +1,72 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: 'AWS CloudFormation Template for Infrastructure'
+Description: 'TP AWS Lambda - Code charge depuis src/main.py'
+
 Parameters:
-  Envname:
+  Environment:
     Type: String
-    Description: 'Environment name (e.g votre identifiant sans learning)'
-    Default: 'learnaws_ehodia'
+    Description: 'Environnement name (e.g. votre identifiant sans le learnaws)'
+    Default: 'ehodia'
   BucketName:
     Type: String
-    Description: "S3 bucket name (e.g votre identifiant sans learning)"
-    Default: "s3-bucket-trigger-lambda"
+    Description: 'S3 bucket name (e.g. votre identifiant sans le learnaws + -bucket pour différencier du bucket de votre voisin)'
+    Default: 's3-bucket-trigger-lambda'
 
-Resources: 
-## IAM Role pour la lambda
+Resources:
+# Rôle IAM pour la fonction Lambda
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName: !Sub '${Envname}-LambdaExecutionRole'
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
-          - Effect: Allow
-            Principal:
-              Service: [lambda.amazonaws.com]
-            Action: [sts:AssumeRole]
+        - Effect: Allow
+          Principal:
+            Service: [lambda.amazonaws.com]
+          Action: [sts:AssumeRole]
       ManagedPolicyArns:
-        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole 
       Policies:
-        - PolicyName: !Sub '${Envname}-LambdaS3AccessPolicy'
+        - PolicyName: LambdaS3AccessPolicy
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
+              - Effect: Deny
+                Action: [s3:GetObject, s3:PutObject]
+                Resource: !Sub 'arn:aws:s3:::${Environment}-${BucketName}/*'
+                # Resource: !GetAtt S3Bucket.Arn
+
+                # Ecrire dand la base de données
               - Effect: Allow
-                Action: [dynamodb:PutItem, dynamodb:GetItem]
+                Action: [
+                    dynamodb:PutItem,
+                    dynamodb:GetItem
+                ]
                 Resource: 'arn:aws:dynamodb:*:*:table/s3-trigger-db'
-# Fonction lambda pour gerer les event S3
-  LambdaTrigger:
+
+  # Fonction Lambda
+  LambdaTigger:
     Type: AWS::Lambda::Function
     Properties:
-      FunctionName: !Sub '${Envname}-${BucketName}'
+      FunctionName: !Sub '${Environment}-lambda-trigger'
       Handler: main.lambda_handler
       Role: !GetAtt LambdaExecutionRole.Arn
-      Runtime: python3.8
-      Code:
-        ZipFile: |
-          import json
+      Runtime: python3.12
+      Code: ../src
 
-          def lambda_handler(event, context):
-              print("Event:", json.dumps(event))
-              return {
-                  'statusCode': 200,
-                  'body': json.dumps('Hello from Lambda!')
-              }
+  LambdaPermissionsForS3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref LambdaTigger
+      Action: 'lambda:InvokeFunction'
+      Principal: 's3.amazonaws.com'
+      SourceArn: !Sub 'arn:aws:s3:::${Environment}-${BucketName}'
 
-# s3 bucket pour le stocker les fichiers
+  # S3 bucket pour stocker les fichier
   S3Bucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
     Properties:
-      BucketName: !Sub '${Envname}-${BucketName}'
+      BucketName: !Sub '${Environment}-${BucketName}'
       NotificationConfiguration:
         LambdaConfigurations:
           - Event: 's3:ObjectCreated:*'
-            Function: !GetAtt LambdaTrigger.Arn
+            Function: !GetAtt LambdaTigger.Arn

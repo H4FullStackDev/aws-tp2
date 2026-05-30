@@ -1,20 +1,19 @@
 AWSTemplateFormatVersion: '2010-09-09'
-Description: AWS CloudFormation Template for Infrastructure
+Description: TP AWS Lambda - Code charge depuis src/main.py
 Parameters:
-  Envname:
+  Environment:
     Type: String
-    Description: Environment name (e.g votre identifiant sans learning)
-    Default: learnaws_ehodia
+    Description: Environnement name (e.g. votre identifiant sans le learnaws)
+    Default: ehodia
   BucketName:
     Type: String
-    Description: S3 bucket name (e.g votre identifiant sans learning)
+    Description: S3 bucket name (e.g. votre identifiant sans le learnaws + 
+      -bucket pour différencier du bucket de votre voisin)
     Default: s3-bucket-trigger-lambda
 Resources:
   LambdaExecutionRole:
     Type: AWS::IAM::Role
     Properties:
-      RoleName:
-        Fn::Sub: ${Envname}-LambdaExecutionRole
       AssumeRolePolicyDocument:
         Version: '2012-10-17'
         Statement:
@@ -27,41 +26,53 @@ Resources:
       ManagedPolicyArns:
       - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
       Policies:
-      - PolicyName:
-          Fn::Sub: ${Envname}-LambdaS3AccessPolicy
+      - PolicyName: LambdaS3AccessPolicy
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
+          - Effect: Deny
+            Action:
+            - s3:GetObject
+            - s3:PutObject
+            Resource:
+              Fn::Sub: arn:aws:s3:::${Environment}-${BucketName}/*
           - Effect: Allow
             Action:
             - dynamodb:PutItem
             - dynamodb:GetItem
             Resource: arn:aws:dynamodb:*:*:table/s3-trigger-db
-  LambdaTrigger:
+  LambdaTigger:
     Type: AWS::Lambda::Function
     Properties:
       FunctionName:
-        Fn::Sub: ${Envname}-${BucketName}
+        Fn::Sub: ${Environment}-lambda-trigger
       Handler: main.lambda_handler
       Role:
         Fn::GetAtt:
         - LambdaExecutionRole
         - Arn
-      Runtime: python3.8
+      Runtime: python3.12
       Code:
-        ZipFile: "import json\n\ndef lambda_handler(event, context):\n    print(\"\
-          Event:\", json.dumps(event))\n    return {\n        'statusCode': 200,\n\
-          \        'body': json.dumps('Hello from Lambda!')\n    }\n"
+        S3Bucket: iabd-sourcecode-management-bucket
+        S3Key: 0ddb24708837d61eff30432b647353fa
+  LambdaPermissionsForS3:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName:
+        Ref: LambdaTigger
+      Action: lambda:InvokeFunction
+      Principal: s3.amazonaws.com
+      SourceArn:
+        Fn::Sub: arn:aws:s3:::${Environment}-${BucketName}
   S3Bucket:
     Type: AWS::S3::Bucket
-    DeletionPolicy: Retain
     Properties:
       BucketName:
-        Fn::Sub: ${Envname}-${BucketName}
+        Fn::Sub: ${Environment}-${BucketName}
       NotificationConfiguration:
         LambdaConfigurations:
         - Event: s3:ObjectCreated:*
           Function:
             Fn::GetAtt:
-            - LambdaTrigger
+            - LambdaTigger
             - Arn
