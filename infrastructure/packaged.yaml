@@ -30,10 +30,9 @@ Resources:
         PolicyDocument:
           Version: '2012-10-17'
           Statement:
-          - Effect: Deny
+          - Effect: Allow
             Action:
             - s3:GetObject
-            - s3:PutObject
             Resource:
               Fn::Sub: arn:aws:s3:::${Environment}-${BucketName}/*
           - Effect: Allow
@@ -54,7 +53,7 @@ Resources:
       Runtime: python3.12
       Code:
         S3Bucket: iabd-sourcecode-management-bucket
-        S3Key: 0ddb24708837d61eff30432b647353fa
+        S3Key: 57fd43c78ecf07b2abccd4035e6354d3
   LambdaPermissionsForS3:
     Type: AWS::Lambda::Permission
     Properties:

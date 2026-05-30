@@ -30,8 +30,8 @@ Resources:
           PolicyDocument:
             Version: '2012-10-17'
             Statement:
-              - Effect: Deny
-                Action: [s3:GetObject, s3:PutObject]
+              - Effect: Allow
+                Action: [s3:GetObject]
                 Resource: !Sub 'arn:aws:s3:::${Environment}-${BucketName}/*'
                 # Resource: !GetAtt S3Bucket.Arn
 
