@@ -1,0 +1,67 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'AWS CloudFormation Template for Infrastructure'
+Parameters:
+  Envname:
+    Type: String
+    Description: 'Environment name (e.g votre identifiant sans learning)'
+    Default: 'learnaws_ehodia'
+  BucketName:
+    Type: String
+    Description: "S3 bucket name (e.g votre identifiant sans learning)"
+    Default: "s3-bucket-trigger-lambda"
+
+Resources: 
+## IAM Role pour la lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${Envname}-LambdaExecutionRole'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: [lambda.amazonaws.com]
+            Action: [sts:AssumeRole]
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: 'LambdaS3AccessPolicy'
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Deny
+                Action:[ s3:GetObject, s3:PutObject]
+                Resource: !Sub 'arn:aws:s3:::${Envname}-${BucketName}/*'
+              - Effect: Allow
+                Action:[dynamodb:PutItem, dynamodb:GetItem]
+                Resource: !Sub 'arn:aws:s3:::${Envname}-${BucketName}/*'
+# Fonction lambda pour gerer les event S3
+  LambdaTrigger:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Sub '${Envname}-${BucketName}'
+      Handler: main.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Runtime: python3.8
+      Code:
+        ZipFile: |
+          import json
+
+          def lambda_handler(event, context):
+              print("Event:", json.dumps(event))
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Hello from Lambda!')
+              }
+
+# s3 bucket pour le stocker les fichiers
+  S3Bucket:
+    Type: AWS::S3::Bucket
+    DeletionPolicy: Retain
+    Properties:
+      BucketName: !Sub '${Envname}-${BucketName}'
+      NotificationConfiguration:
+        LambdaConfigurations:
+          - Event: 's3:ObjectCreated:*'
+            Function: !GetAtt LambdaTrigger.Arn
